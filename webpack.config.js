@@ -5,6 +5,6 @@ module.exports = {
   entry: './index.js',
   output: {
     filename: './my-bread-120-lib.js',
-    path: path.resolve(__dirname, 'demo')
+    path: path.resolve(__dirname, 'docs')
   }
 };
