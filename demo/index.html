@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>DEMO my-bread-120</title>
+
+    <script src="./my-bread-120-lib.js"></script>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/dist/tf-tflite.min.js"></script>
+
+    <style>
+        @keyframes DotBlink{ 100%{ opacity: 20%; } }
+    </style>
+
+    <script>
+        const NBSP = '\u00A0';
+        const defaultImageWidth = 480;
+        const theMean = [103.939, 116.779, 123.68];
+        const imageSize = 512;
+        const maskedColorRGBA = [128, 0, 0, 150];
+        const modelPath = './model/my_bread_120.tflite';
+    </script>
+
+  </head>
+  <body style="margin: 20px; font-family: Arial, Helvetica, sans-serif;">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        class App extends React.Component {
+            constructor(props) {
+                super(props);
+
+                this.state = {
+                    isFileSelected: false,
+                    selectedFile: '',
+                    selectedFilename: '',
+                    hasResult: false,
+                    invalidImageFileSelected: false
+                };
+            }
+
+            render(){
+                const changeHandler = (event)=>{
+                    const targetImageObj = document.getElementById( 'targetImage' );
+                    const selectedFile = event.target.files[0];
+
+                    const valid = ( isValidImageFile(selectedFile) && targetImageObj!=null );
+                    if( !valid ){
+                        this.setState({
+                            isFileSelected: true,
+                            selectedFile: selectedFile,
+                            selectedFilename: selectedFile.name,
+                            hasResult: false,
+                            invalidImageFileSelected: true
+                        });
+                    } else {
+                        const reader = new FileReader();
+                        reader.readAsArrayBuffer(selectedFile);
+                        reader.onload = () => {
+                            const buffer = reader.result;
+
+                            const imageURL = URL.createObjectURL( new Blob( [ buffer ] ) );
+                            targetImageObj.src = imageURL;
+
+                            targetImageObj.onload = () => {
+                                const targetImageWidth  = targetImageObj.width;
+                                const targetImageHeight = targetImageObj.height;
+                                const scaleValue = defaultImageWidth / targetImageWidth;
+                                const resultImageW = (targetImageWidth * scaleValue);
+                                const resultImageH = (targetImageHeight * scaleValue);
+
+                                tflite.setWasmPath('./tfjs-tflite/wasm/');
+                        
+                                tflite.loadTFLiteModel(modelPath).then((model)=>{
+                                    tf.tidy(()=>{
+                                        const imgTensor0 = tf.image.resizeBilinear(
+                                            tf.browser.fromPixels( document.getElementById('targetImage') ),
+                                            [imageSize, imageSize]);
+                                        const inputTensor = tf.expandDims(tf.reverse(imgTensor0, -1).sub( tf.tensor(theMean) ));
+                                        const outputTensor = model.predict(inputTensor);
+    
+                                        const rgba = toARGAArray(
+                                            outputTensor.arraySync(),
+                                            imgTensor0.arraySync(),
+                                            imageSize,
+                                            maskedColorRGBA);
+    
+                                        const imageData = new ImageData(Uint8ClampedArray.from(rgba), imageSize, imageSize);
+                                        const canvas = document.createElement('canvas');
+                                        const ctx = canvas.getContext('2d');
+                                        canvas.width = imageData.width;
+                                        canvas.height = imageData.height;
+                                        ctx.putImageData(imageData, 0, 0);
+    
+                                        const resultImage = document.getElementById('resultImage');
+                                        resultImage.src = canvas.toDataURL();
+                                        resultImage.width  = resultImageW;
+                                        resultImage.height = resultImageH;
+    
+                                        this.setState({
+                                            isFileSelected: this.state.isFileSelected,
+                                            selectedFile: this.state.selectedFile,
+                                            selectedFilename: this.state.selectedFilename,
+                                            hasResult: true,
+                                            invalidImageFileSelected: false
+                                        });
+                                    });
+                                });
+                            };
+                        };
+
+                        this.setState({
+                            isFileSelected: true,
+                            selectedFile: selectedFile,
+                            selectedFilename: selectedFile.name,
+                            hasResult: false,
+                            invalidImageFileSelected: false
+                        });
+                    }
+                };
+
+                const handleOnClick = ()=>{
+                    document.getElementById('selectedFile').click();
+                };
+
+                const resetHandleOnClick = ()=>{
+                    window.location.reload();
+                };
+
+
+                if( this.state.invalidImageFileSelected ){
+                    const inputStyle = {display: 'none'};
+                    const buttonStyle = {marginRight: 5};
+                    const filenameStyle = { fontWeight: 'Bold', fontSize: '1.2em'};
+
+                    return (
+                        <>
+                            <h1>DEMO my-bread-120</h1>
+                            <div>
+                                <p>
+                                    <span style={filenameStyle}>{this.state.selectedFilename}</span>, this file type does not support.
+                                    {NBSP}
+                                    <input type="button" value="Reset" onClick={resetHandleOnClick} style={buttonStyle} />
+                                </p>
+                            </div>
+                        </>
+                    );
+                } else if( !this.state.isFileSelected ){
+                    const inputStyle = {display: 'none'};
+                    const buttonStyle = {marginRight: 5};
+
+                    return (
+                        <>
+                            <h1>DEMO my-bread-120</h1>
+                            <div>
+                                <input type="file" id="selectedFile" onChange={changeHandler} style={inputStyle} />
+                                <input type="button" value="Select an image file with bread (jpg/jpeg/png)" onClick={handleOnClick} style={buttonStyle} />
+                            </div>
+                            <div>
+                                <img id="targetImage" width="{defaultImageWidth}" />
+                            </div>
+                        </>
+                    );
+                } else {
+                    const dotStyle = { animation: 'DotBlink 1s ease-in-out infinite alternate'};
+
+                    const filenameStyle = { fontWeight: 'Bold', fontSize: '1.2em'};
+                    const middleStyle = { verticalAlign: 'middle'};
+
+                    const resetDivStyle = {
+                        marginTop: '10px'};
+
+                    const targetImageStyle = {
+                        verticalAlign: 'middle',
+                        width: defaultImageWidth};
+
+                    const buttonStyle = {marginRight: '5px'};
+
+                    return (
+                        <>
+                            <h1>DEMO my-bread-120</h1>
+                            <div>
+                                { (!this.state.hasResult) ?
+                                    <p><span style={filenameStyle}>{this.state.selectedFilename}</span> <span style={dotStyle}>Now under processing...</span></p>
+                                    :
+                                    <p><span style={filenameStyle}>{this.state.selectedFilename}</span>{NBSP}<input type="button" value="Reset" onClick={resetHandleOnClick} style={buttonStyle} /></p>}
+                            </div>
+
+                            <div>
+                                <img id="targetImage" width="{defaultImageWidth}" style={targetImageStyle} />
+                                { (this.state.hasResult) ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" style={middleStyle}><path stroke="black" fill="true" d="M 4,11 H 16.17 l -5.59,-5.59 L 12,4 l 8,8 l -8,8 l -1.41,-1.41 L 16.17,13 H 4 v -2 z"/></svg> : null }
+                                   <img id="resultImage" style={middleStyle} />
+                            </div>
+                        </>
+                    );
+                }
+            }
+        }
+
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+
+  </body>
+</html>
