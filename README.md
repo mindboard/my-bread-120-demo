@@ -7,7 +7,9 @@ This is a bread pixels predict demo using the model of fine-tuning my-bread-120 
 
 ## Use demo
 
-See this video: [https://youtu.be/hxTpgBQHPCA](https://youtu.be/hxTpgBQHPCA)
+[https://mindboard.github.io/my-bread-120-demo/](https://mindboard.github.io/my-bread-120-demo/)
+
+Usage : See this video: [https://youtu.be/hxTpgBQHPCA](https://youtu.be/hxTpgBQHPCA)
 
 
 ## About Tensorflow.js
@@ -32,7 +34,7 @@ $ npm -v
 
 1. npm install
 2. npx webpack
-3. cd demo; python3 -m http.server 8000
+3. python3 -m http.server 8000 --directory ./docs
 4. http://localhost:8000/
 
 If you do not have any test bread images, you can use these images ./imgs/example-1.jpg and ./imgs/example-2.jpg.
